@@ -16,7 +16,7 @@ class PermissionsRequest {
     static func fromCall(call: FlutterMethodCall) throws -> PermissionsRequest {
         guard let arguments = call.arguments as? Dictionary<String, Any>,
               let types = arguments["types"] as? Array<String> else {
-            throw "invalid call arguments \(call.arguments)";
+            throw "invalid call arguments";
         }
 
         let sampleTypes = types.compactMap { type -> HKSampleType? in

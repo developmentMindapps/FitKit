@@ -25,6 +25,8 @@ public class SwiftFitKitPlugin: NSObject, FlutterPlugin {
             healthStore = HKHealthStore();
         }
 
+        print("FitKit: handle call")
+
         do {
             if (call.method == "hasPermissions") {
                 let request = try PermissionsRequest.fromCall(call: call)
@@ -37,6 +39,15 @@ public class SwiftFitKitPlugin: NSObject, FlutterPlugin {
             } else if (call.method == "read") {
                 let request = try ReadRequest.fromCall(call: call)
                 read(request: request, result: result)
+            } else if (call.method == "write") {
+                let request = try WriteRequest.fromCall(call: call)
+                write(request: request, result: result)
+            } else if (call.method == "startWatchApp") {
+                if let arguments = call.arguments as? Dictionary<String, Any>,
+                   let lapLength = arguments["lapLength"] as? Double
+                {
+                    startWatchApp(lapLength: lapLength, result: result)
+                }
             } else {
                 result(FlutterMethodNotImplemented)
             }
@@ -61,29 +72,13 @@ public class SwiftFitKitPlugin: NSObject, FlutterPlugin {
     *   Once he responds no matter of the result status will be sharingDenied.
     */
     private func hasPermissions(request: PermissionsRequest, result: @escaping FlutterResult) {
-        if #available(iOS 12.0, *) {
-            healthStore!.getRequestStatusForAuthorization(toShare: [], read: Set(request.sampleTypes)) { (status, error) in
-                guard error == nil else {
-                    result(FlutterError(code: self.TAG, message: "hasPermissions", details: error.debugDescription))
-                    return
-                }
-
-                guard status == HKAuthorizationRequestStatus.unnecessary else {
-                    result(false)
-                    return
-                }
-
-                result(true)
-            }
-        } else {
             let authorized = request.sampleTypes.map {
                         healthStore!.authorizationStatus(for: $0)
                     }
                     .allSatisfy {
-                        $0 != HKAuthorizationStatus.notDetermined
+                        $0 == HKAuthorizationStatus.sharingAuthorized
                     }
             result(authorized)
-        }
     }
 
     private func requestPermissions(request: PermissionsRequest, result: @escaping FlutterResult) {
@@ -116,7 +111,7 @@ public class SwiftFitKitPlugin: NSObject, FlutterPlugin {
     }
 
     private func requestAuthorization(sampleTypes: Array<HKSampleType>, completion: @escaping (Bool, FlutterError?) -> Void) {
-        healthStore!.requestAuthorization(toShare: nil, read: Set(sampleTypes)) { (success, error) in
+        healthStore!.requestAuthorization(toShare: Set(sampleTypes), read: Set(sampleTypes)) { (success, error) in
             guard success else {
                 completion(false, FlutterError(code: self.TAG, message: "requestAuthorization", details: error.debugDescription))
                 return
@@ -176,4 +171,47 @@ public class SwiftFitKitPlugin: NSObject, FlutterPlugin {
 
         return sample.source.name;
     }
+
+    private func write(request: WriteRequest, result: @escaping FlutterResult) {
+        print("FitKit: write")
+
+        writeSample(request: request, result: result)
+    }
+
+    private func writeSample(request: WriteRequest, result: @escaping FlutterResult) {
+        if #available(iOS 13, *) {
+            let sampleType = HKSampleType.categoryType(forIdentifier: HKCategoryTypeIdentifier.mindfulSession)
+            let sampleObject = HKCategorySample(type: sampleType!,
+                value: HKCategoryValue.notApplicable.rawValue ,
+                start: request.dateFrom,
+                end: request.dateTo)
+
+            print("FitKit: save")
+
+            healthStore!.save(sampleObject) { (value: Bool, error: Error?) in
+                print("FitKit: save result \(value)")
+                print(error.debugDescription)
+                result(value)
+            }
+         } else {
+            result(false)
+         }
+    }
+
+    private func startWatchApp(lapLength: Double, result: @escaping FlutterResult) {
+        if #available(iOS 13, *) {
+            let workoutConfiguration = HKWorkoutConfiguration()
+
+            workoutConfiguration.activityType = .mindAndBody
+            workoutConfiguration.locationType = .indoor
+            workoutConfiguration.lapLength = HKQuantity.init(unit: HKUnit.second(), doubleValue: lapLength)
+
+            healthStore!.startWatchApp(with: workoutConfiguration) { (status: Bool, error: Error?) in
+                result(status)
+            }
+        } else {
+            result(false)
+        }
+    }
+
 }

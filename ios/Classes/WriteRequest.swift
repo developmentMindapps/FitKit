@@ -1,28 +1,22 @@
-//
-// Created by Martin Anderson on 2019-03-10.
-//
-
 import HealthKit
 
-class ReadRequest {
+class WriteRequest {
     let type: String
     let sampleType: HKSampleType
     let unit: HKUnit
 
     let dateFrom: Date
     let dateTo: Date
-    let limit: Int?
 
-    private init(type: String, sampleType: HKSampleType, unit: HKUnit, dateFrom: Date, dateTo: Date, limit: Int?) {
+    private init(type: String, sampleType: HKSampleType, unit: HKUnit, dateFrom: Date, dateTo: Date) {
         self.type = type;
         self.sampleType = sampleType
         self.unit = unit
         self.dateFrom = dateFrom
         self.dateTo = dateTo
-        self.limit = limit
     }
 
-    static func fromCall(call: FlutterMethodCall) throws -> ReadRequest {
+    static func fromCall(call: FlutterMethodCall) throws -> WriteRequest {
         guard let arguments = call.arguments as? Dictionary<String, Any>,
               let type = arguments["type"] as? String,
               let dateFromEpoch = arguments["date_from"] as? NSNumber,
@@ -37,8 +31,7 @@ class ReadRequest {
         }
         let dateFrom = Date(timeIntervalSince1970: dateFromEpoch.doubleValue / 1000)
         let dateTo = Date(timeIntervalSince1970: dateToEpoch.doubleValue / 1000)
-        let limit = arguments["limit"] as? Int
 
-        return ReadRequest(type: type, sampleType: sampleType, unit: unit, dateFrom: dateFrom, dateTo: dateTo, limit: limit)
+        return WriteRequest(type: type, sampleType: sampleType, unit: unit, dateFrom: dateFrom, dateTo: dateTo)
     }
 }
